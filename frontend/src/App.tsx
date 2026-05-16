@@ -58,7 +58,7 @@ async function api<T>(path: string): Promise<T | null> {
   }
 }
 
-function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; currentDow: number; currentSlot: number }) {
+function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentDow?: number; currentSlot: number }) {
   const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number } | null>(null);
   const SLOTS = 48;
   const grid: number[][] = Array.from({ length: 7 }, () => Array(SLOTS).fill(0));
@@ -68,8 +68,10 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
     if (d.avg > max) max = d.avg;
   }
 
+  const currentPct = (currentSlot / SLOTS) * 100;
+
   return (
-    <div>
+    <div className="relative">
       {hover && (
         <div
           className="fixed pointer-events-none z-50 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
@@ -78,44 +80,44 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
           {hover.day} {Math.floor(hover.slot / 2).toString().padStart(2, "0")}:{hover.slot % 2 === 0 ? "00" : "30"} avg {Math.round(hover.val)}
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(48,1fr)]">
-        <div />
-        {Array.from({ length: SLOTS }, (_, i) => (
-          <div
-            key={i}
-            className="text-center text-[var(--muted-foreground)] text-[9px] leading-tight"
-          >
-            {i % 6 === 0 ? Math.floor(i / 2).toString().padStart(2, "0") : ""}
+      <div className="flex text-[var(--muted-foreground)] text-[9px] ml-8 mb-px">
+        {Array.from({ length: 24 }, (_, i) => (
+          <div key={i} className="flex-1 text-center">
+            {i % 2 === 0 ? i.toString().padStart(2, "0") : ""}
           </div>
         ))}
+      </div>
+      <div className="relative">
+        <div
+          className="absolute top-0 bottom-0 w-px bg-red-500 z-10 pointer-events-none"
+          style={{ left: `calc(2rem + (100% - 2rem) * ${currentPct} / 100)` }}
+        />
         {DAYS.map((day, di) => (
-          <>
-            <div key={`${day}-label`} className="text-[var(--muted-foreground)] flex items-center text-[10px]">
+          <div key={day} className="flex items-stretch h-3">
+            <div className="w-8 shrink-0 text-[var(--muted-foreground)] text-[10px] flex items-center">
               {day}
             </div>
-            {Array.from({ length: SLOTS }, (_, s) => {
-              const val = grid[di][s];
-              const intensity = val / max;
-              const isCurrent = di === currentDow && s === currentSlot;
-              return (
-                <div
-                  key={`${day}-${s}`}
-                  className="aspect-[1/2] cursor-crosshair"
-                  style={{
-                    backgroundColor: isCurrent
-                      ? `rgba(255,255,255,${Math.max(intensity, 0.3)})`
-                      : `rgba(255,255,255,${intensity * 0.8})`,
-                    outline: isCurrent ? "1px solid white" : "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    setHover({ day, slot: s, val, x: rect.right, y: rect.top });
-                  }}
-                  onMouseLeave={() => setHover(null)}
-                />
-              );
-            })}
-          </>
+            <div className="flex-1 flex">
+              {Array.from({ length: SLOTS }, (_, s) => {
+                const val = grid[di][s];
+                const intensity = val / max;
+                return (
+                  <div
+                    key={s}
+                    className="flex-1 cursor-crosshair"
+                    style={{
+                      backgroundColor: `rgba(255,255,255,${intensity * 0.85})`,
+                    }}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHover({ day, slot: s, val, x: rect.right, y: rect.top });
+                    }}
+                    onMouseLeave={() => setHover(null)}
+                  />
+                );
+              })}
+            </div>
+          </div>
         ))}
       </div>
     </div>
@@ -155,7 +157,7 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={points}>
+      <ComposedChart data={points} margin={{ left: 0, right: 0, top: 5, bottom: 0 }}>
         <CartesianGrid strokeDasharray="2 2" stroke="var(--border)" />
         <XAxis
           dataKey="time"
@@ -163,7 +165,7 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
           stroke="var(--border)"
           type="number"
           domain={[0, TOTAL_HOURS]}
-          ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28]}
+          ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]}
           tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
         />
         <YAxis
@@ -185,6 +187,7 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
             return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
           }}
         />
+        <ReferenceLine x={24} stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="4 2" />
         <ReferenceLine x={currentTime} stroke="#ef4444" strokeWidth={1.5} />
         <Area
           type="monotone"
@@ -260,11 +263,11 @@ export function App() {
   const pctOfPeak = stats && stats.peak > 0 ? Math.round((stats.current / stats.peak) * 100) : 0;
 
   const quietestUpcoming = predicted
-    .filter((p) => p.hour > currentHour)
+    .filter((p) => p.hour > currentHour && p.hour < 24)
     .sort((a, b) => a.avg - b.avg)[0];
 
   return (
-    <div className="p-8 w-full max-w-4xl flex flex-col gap-4">
+    <div className="p-8 w-full max-w-5xl flex flex-col gap-4">
       <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
         <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
         {error && <span className="text-[var(--muted-foreground)]">offline</span>}
@@ -292,7 +295,7 @@ export function App() {
           </div>
           <div className="flex gap-4 text-[var(--muted-foreground)]">
             <span>
-              avg for {currentHour}:00 {DAYS[currentDow]}:{" "}
+              avg for {currentHour.toString().padStart(2, "0")}:00 {DAYS[currentDow]}:{" "}
               <span className="text-[var(--foreground)] font-medium">{stats.avg_now}</span>
             </span>
             <span>
