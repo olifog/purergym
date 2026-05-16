@@ -105,13 +105,6 @@ function Heatmap({ data, currentTimePct }: { data: HeatmapSlotData[]; currentTim
           })}
         </div>
       ))}
-      <div className="flex mt-0.5">
-        {Array.from({ length: 24 }, (_, i) => (
-          <div key={i} className="flex-1 text-left text-[var(--muted-foreground)] text-[9px]">
-            {i % 2 === 0 ? i.toString().padStart(2, "0") : ""}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -294,12 +287,12 @@ export function App() {
           )}
         </section>
 
-        <section>
+        <section className="-mt-2">
           <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
             Weekly avg
           </h2>
-          <div className="flex">
-            <div className="shrink-0 flex flex-col justify-around pr-2" style={{ width: Y_AXIS_WIDTH + 4 }}>
+          <div className="flex" style={{ marginLeft: -8 }}>
+            <div className="shrink-0 flex flex-col justify-around pr-1" style={{ width: Y_AXIS_WIDTH - 8 }}>
               {DAYS.map((day) => (
                 <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right leading-[12px]">{day}</span>
               ))}
