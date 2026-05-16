@@ -59,6 +59,7 @@ async function api<T>(path: string): Promise<T | null> {
 }
 
 function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; currentDow: number; currentHour: number }) {
+  const [hover, setHover] = useState<{ day: string; hour: number; val: number; x: number; y: number } | null>(null);
   const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   let max = 1;
   for (const d of data) {
@@ -67,46 +68,55 @@ function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; current
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse">
-        <thead>
-          <tr>
-            <th className="p-0 text-left w-8" />
-            {Array.from({ length: 24 }, (_, i) => (
-              <th
-                key={i}
-                className="p-0 font-normal text-[var(--muted-foreground)] text-center w-[calc((100%-2rem)/24)]"
-              >
-                {i.toString().padStart(2, "0")}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {DAYS.map((day, di) => (
-            <tr key={day}>
-              <td className="p-0 pr-1 text-[var(--muted-foreground)]">{day}</td>
-              {Array.from({ length: 24 }, (_, h) => {
-                const val = grid[di][h];
-                const intensity = val / max;
-                const isCurrent = di === currentDow && h === currentHour;
-                return (
-                  <td key={h} className="p-0" title={`${day} ${h}:00 — avg ${Math.round(val)}`}>
-                    <div
-                      className="w-full aspect-square"
-                      style={{
-                        opacity: Math.max(intensity, 0.05),
-                        backgroundColor: isCurrent ? "var(--primary)" : "var(--foreground)",
-                        outline: isCurrent ? "1px solid var(--foreground)" : "none",
-                      }}
-                    />
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="overflow-x-auto relative">
+      {hover && (
+        <div
+          className="absolute pointer-events-none z-10 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+          style={{ left: hover.x, top: hover.y - 32 }}
+        >
+          {hover.day} {hover.hour.toString().padStart(2, "0")}:00 — avg {Math.round(hover.val)}
+        </div>
+      )}
+      <div className="grid grid-cols-[2rem_repeat(24,1fr)] gap-px">
+        <div />
+        {Array.from({ length: 24 }, (_, i) => (
+          <div
+            key={i}
+            className="text-center text-[var(--muted-foreground)] text-[10px] leading-tight"
+          >
+            {i % 2 === 0 ? i.toString().padStart(2, "0") : ""}
+          </div>
+        ))}
+        {DAYS.map((day, di) => (
+          <>
+            <div key={`${day}-label`} className="text-[var(--muted-foreground)] flex items-center text-[10px]">
+              {day}
+            </div>
+            {Array.from({ length: 24 }, (_, h) => {
+              const val = grid[di][h];
+              const intensity = val / max;
+              const isCurrent = di === currentDow && h === currentHour;
+              return (
+                <div
+                  key={`${day}-${h}`}
+                  className="aspect-square cursor-crosshair"
+                  style={{
+                    opacity: Math.max(intensity, 0.05),
+                    backgroundColor: isCurrent ? "var(--primary)" : "var(--foreground)",
+                    outline: isCurrent ? "1px solid var(--foreground)" : "none",
+                  }}
+                  onMouseEnter={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const parent = e.currentTarget.closest(".relative")!.getBoundingClientRect();
+                    setHover({ day, hour: h, val, x: rect.left - parent.left, y: rect.top - parent.top });
+                  }}
+                  onMouseLeave={() => setHover(null)}
+                />
+              );
+            })}
+          </>
+        ))}
+      </div>
     </div>
   );
 }
