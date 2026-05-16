@@ -82,7 +82,7 @@ def resolve_gym_id(token: str) -> str:
         timeout=HTTP_TIMEOUT,
     )
     r.raise_for_status()
-    return str(r.json()["homeGymId"])
+    return str(r.json()["HomeGym"]["Id"])
 
 
 def fetch_attendance(token: str, gym_id: str) -> dict:
@@ -108,17 +108,16 @@ def poll_loop():
                     print(f"resolved gym_id={gym_id}")
 
             data = fetch_attendance(token, gym_id)
-            count = data.get("totalPeopleInGym", 0)
-            capacity = data.get("maximumCapacity", 0)
+            count = data.get("TotalPeopleInGym", 0)
+            capacity = data.get("MaximumCapacity", 0) or 300
             ts = datetime.now(timezone.utc).isoformat()
 
-            if capacity > 0:
-                with get_db() as db:
-                    db.execute(
-                        "INSERT INTO readings (timestamp, count, capacity) VALUES (?, ?, ?)",
-                        (ts, count, capacity),
-                    )
-                print(f"[{ts}] count={count} cap={capacity}")
+            with get_db() as db:
+                db.execute(
+                    "INSERT INTO readings (timestamp, count, capacity) VALUES (?, ?, ?)",
+                    (ts, count, capacity),
+                )
+            print(f"[{ts}] count={count} cap={capacity}")
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
