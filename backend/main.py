@@ -139,17 +139,41 @@ def health():
 
 
 @app.get("/api/stats")
-def stats():
+def stats(tz_offset: int = Query(default=0, ge=-12, le=14)):
+    offset_str = f"{tz_offset:+d} hours" if tz_offset != 0 else "0 hours"
     with get_db() as db:
-        row = db.execute(
+        current = db.execute(
             "SELECT timestamp, count, capacity FROM readings ORDER BY id DESC LIMIT 1"
         ).fetchone()
-    if not row:
-        return {"current": 0, "capacity": 0, "last_updated": ""}
+        if not current:
+            return {
+                "current": 0, "peak": 0, "avg_now": 0,
+                "diff_from_avg": 0, "last_updated": "",
+            }
+
+        peak = db.execute("SELECT MAX(count) as peak FROM readings").fetchone()["peak"] or 1
+
+        now = datetime.now(timezone.utc)
+        local_now = now + timedelta(hours=tz_offset)
+        current_dow = int(local_now.strftime("%w"))
+        current_hour = local_now.hour
+
+        avg_row = db.execute(
+            f"""
+            SELECT avg(count) as avg_count FROM readings
+            WHERE cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) = ?
+            AND cast(strftime('%H', datetime(timestamp, '{offset_str}')) as integer) = ?
+            """,
+            (current_dow, current_hour),
+        ).fetchone()
+        avg_now = round(avg_row["avg_count"], 1) if avg_row["avg_count"] else 0
+
     return {
-        "current": row["count"],
-        "capacity": row["capacity"],
-        "last_updated": row["timestamp"],
+        "current": current["count"],
+        "peak": peak,
+        "avg_now": avg_now,
+        "diff_from_avg": round(current["count"] - avg_now, 1),
+        "last_updated": current["timestamp"],
     }
 
 
@@ -165,6 +189,35 @@ def today_readings(tz_offset: int = Query(default=0, ge=-12, le=14)):
             (start.isoformat(),),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/predicted")
+def predicted_today(tz_offset: int = Query(default=0, ge=-12, le=14)):
+    """Average count for each hour of today's day-of-week (the predicted curve)."""
+    now = datetime.now(timezone.utc)
+    local_now = now + timedelta(hours=tz_offset)
+    current_dow = int(local_now.strftime("%w"))
+    offset_str = f"{tz_offset:+d} hours" if tz_offset != 0 else "0 hours"
+
+    with get_db() as db:
+        rows = db.execute(
+            f"""
+            SELECT
+                cast(strftime('%H', datetime(timestamp, '{offset_str}')) as integer) as hour,
+                avg(count) as avg_count,
+                max(count) as max_count,
+                min(count) as min_count
+            FROM readings
+            WHERE cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) = ?
+            GROUP BY hour
+            ORDER BY hour
+            """,
+            (current_dow,),
+        ).fetchall()
+    return [
+        {"hour": r["hour"], "avg": round(r["avg_count"], 1), "max": r["max_count"], "min": r["min_count"]}
+        for r in rows
+    ]
 
 
 @app.get("/api/heatmap")
