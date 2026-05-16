@@ -40,6 +40,8 @@ interface HeatmapSlotData {
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TZ_OFFSET = Math.round(-new Date().getTimezoneOffset() / 60);
 const Y_AXIS_WIDTH = 30;
+const HEATMAP_WIDTH = 900;
+const CHART_WIDTH = HEATMAP_WIDTH * (30 / 24);
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleTimeString("en-GB", {
@@ -72,7 +74,7 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
   const currentPct = (currentSlot / SLOTS) * 100;
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ width: HEATMAP_WIDTH }}>
       {hover && (
         <div
           className="fixed pointer-events-none z-50 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
@@ -119,7 +121,6 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
 function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predicted[] }) {
   const now = new Date();
   const currentTime = now.getHours() + now.getMinutes() / 60;
-  const TOTAL_HOURS = 30;
 
   const points: { time: number; actual: number | null; predicted: number | null; predictedMax: number | null; predictedMin: number | null }[] = [];
 
@@ -148,45 +149,47 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
   points.sort((a, b) => a.time - b.time);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={points} margin={{ left: 0, right: 0, top: 5, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="2 2" stroke="var(--border)" />
-        <XAxis
-          dataKey="time"
-          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-          stroke="var(--border)"
-          type="number"
-          domain={[0, TOTAL_HOURS]}
-          ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]}
-          tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
-        />
-        <YAxis
-          tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-          stroke="var(--border)"
-          width={Y_AXIS_WIDTH}
-        />
-        <Tooltip
-          contentStyle={{
-            background: "var(--background)",
-            border: "1px solid var(--border)",
-            borderRadius: 0,
-            fontSize: 11,
-            fontFamily: "inherit",
-          }}
-          labelFormatter={(t) => {
-            const h = Math.floor(Number(t) % 24);
-            const m = Math.round((Number(t) % 1) * 60);
-            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-          }}
-        />
-        <ReferenceLine x={24} stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="4 2" />
-        <ReferenceLine x={currentTime} stroke="#ef4444" strokeWidth={1.5} />
-        <Area type="monotone" dataKey="predictedMax" stroke="none" fill="var(--foreground)" fillOpacity={0.05} connectNulls />
-        <Area type="monotone" dataKey="predictedMin" stroke="none" fill="var(--background)" fillOpacity={1} connectNulls />
-        <Line type="monotone" dataKey="predicted" stroke="var(--muted-foreground)" strokeDasharray="4 2" strokeWidth={1} dot={false} connectNulls />
-        <Line type="linear" dataKey="actual" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 2, fill: "var(--foreground)" }} connectNulls />
-      </ComposedChart>
-    </ResponsiveContainer>
+    <div className="h-48" style={{ width: CHART_WIDTH + Y_AXIS_WIDTH }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={points} margin={{ left: 0, right: 0, top: 5, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="2 2" stroke="var(--border)" />
+          <XAxis
+            dataKey="time"
+            tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)"
+            type="number"
+            domain={[0, 30]}
+            ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]}
+            tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
+          />
+          <YAxis
+            tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)"
+            width={Y_AXIS_WIDTH}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "var(--background)",
+              border: "1px solid var(--border)",
+              borderRadius: 0,
+              fontSize: 11,
+              fontFamily: "inherit",
+            }}
+            labelFormatter={(t) => {
+              const h = Math.floor(Number(t) % 24);
+              const m = Math.round((Number(t) % 1) * 60);
+              return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+            }}
+          />
+          <ReferenceLine x={24} stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="4 2" />
+          <ReferenceLine x={currentTime} stroke="#ef4444" strokeWidth={1.5} />
+          <Area type="monotone" dataKey="predictedMax" stroke="none" fill="var(--foreground)" fillOpacity={0.05} connectNulls />
+          <Area type="monotone" dataKey="predictedMin" stroke="none" fill="var(--background)" fillOpacity={1} connectNulls />
+          <Line type="monotone" dataKey="predicted" stroke="var(--muted-foreground)" strokeDasharray="4 2" strokeWidth={1} dot={false} connectNulls />
+          <Line type="linear" dataKey="actual" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 2, fill: "var(--foreground)" }} connectNulls />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -229,18 +232,9 @@ export function App() {
     .filter((p) => p.hour > currentHour && p.hour < 24)
     .sort((a, b) => a.avg - b.avg)[0];
 
-  // Chart is 30/24 = 125% of the heatmap width.
-  // Chart's Y-axis (30px) sits to the left of the plot area.
-  // So chart total width = Y_AXIS_WIDTH + plotArea.
-  // We want plotArea's 0-24 region = heatmap width.
-  // plotArea covers 0-30, so 24h portion = 80% of plotArea.
-  // We need: 0.8 * plotArea = heatmapWidth => plotArea = 1.25 * heatmapWidth.
-  // chartTotalWidth = Y_AXIS_WIDTH + 1.25 * heatmapWidth.
-  // As a percentage of heatmapWidth: (Y_AXIS_WIDTH / heatmapWidth + 1.25) * 100%.
-  // With a CSS calc: width = calc(125% + Y_AXIS_WIDTH px), margin-left = -Y_AXIS_WIDTH.
-
   return (
-    <div className="m-8 flex flex-col gap-4" style={{ width: "calc(100vw - 4rem)", maxWidth: 1000 }}>
+    <div style={{ padding: 40 }}>
+      <div style={{ width: HEATMAP_WIDTH + Y_AXIS_WIDTH }} className="flex flex-col gap-4">
         <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
           <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
           {error && <span className="text-[var(--muted-foreground)]">offline</span>}
@@ -288,22 +282,17 @@ export function App() {
           </div>
         )}
 
-        <section className="overflow-visible">
+        <section>
           <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
             Today vs predicted
           </h2>
-          <div
-            className="h-48"
-            style={{ width: `calc(125% - 8px)` }}
-          >
-            {predicted.length > 0 ? (
-              <TodayChart today={today} predicted={predicted} />
-            ) : (
-              <div className="h-full flex items-center justify-center text-[var(--muted-foreground)]">
-                collecting data...
-              </div>
-            )}
-          </div>
+          {predicted.length > 0 ? (
+            <TodayChart today={today} predicted={predicted} />
+          ) : (
+            <div className="h-48 flex items-center justify-center text-[var(--muted-foreground)]">
+              collecting data...
+            </div>
+          )}
         </section>
 
         <section>
@@ -316,15 +305,14 @@ export function App() {
                 <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right pr-1 leading-[12px]">{day}</span>
               ))}
             </div>
-            <div className="flex-1">
-              {heatmap.length > 0 ? (
-                <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
-              ) : (
-                <div className="text-[var(--muted-foreground)]">collecting data...</div>
-              )}
-            </div>
+            {heatmap.length > 0 ? (
+              <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
+            ) : (
+              <div className="text-[var(--muted-foreground)]">collecting data...</div>
+            )}
           </div>
         </section>
+      </div>
     </div>
   );
 }
