@@ -59,7 +59,7 @@ async function api<T>(path: string): Promise<T | null> {
 }
 
 function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; currentDow: number; currentSlot: number }) {
-  const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number; belowY: number } | null>(null);
+  const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number } | null>(null);
   const SLOTS = 48;
   const grid: number[][] = Array.from({ length: 7 }, () => Array(SLOTS).fill(0));
   let max = 1;
@@ -69,14 +69,11 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
   }
 
   return (
-    <div className="overflow-x-auto relative">
+    <div>
       {hover && (
         <div
-          className="absolute pointer-events-none z-10 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
-          style={{
-            left: Math.min(hover.x, 600),
-            top: hover.y < 32 ? hover.belowY + 4 : hover.y - 28,
-          }}
+          className="fixed pointer-events-none z-50 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
+          style={{ left: hover.x + 12, top: hover.y - 24 }}
         >
           {hover.day} {Math.floor(hover.slot / 2).toString().padStart(2, "0")}:{hover.slot % 2 === 0 ? "00" : "30"} avg {Math.round(hover.val)}
         </div>
@@ -111,15 +108,7 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
                   }}
                   onMouseEnter={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
-                    const parent = e.currentTarget.closest(".relative")!.getBoundingClientRect();
-                    setHover({
-                      day,
-                      slot: s,
-                      val,
-                      x: rect.left - parent.left,
-                      y: rect.top - parent.top,
-                      belowY: rect.bottom - parent.top,
-                    });
+                    setHover({ day, slot: s, val, x: rect.right, y: rect.top });
                   }}
                   onMouseLeave={() => setHover(null)}
                 />
