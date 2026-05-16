@@ -37,6 +37,21 @@ interface HeatmapSlotData {
   avg: number;
 }
 
+interface Visit {
+  start: string;
+  duration: number;
+  gym: string;
+  estimated: boolean;
+}
+
+interface VisitsData {
+  visits: Visit[];
+  summary: {
+    Total: { Visits: number; Duration: number };
+    ThisWeek: { Visits: number; Duration: number };
+  } | null;
+}
+
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TZ_OFFSET = Math.round(-new Date().getTimezoneOffset() / 60);
 const Y_AXIS_WIDTH = 30;
@@ -190,6 +205,7 @@ export function App() {
   const [today, setToday] = useState<Reading[]>([]);
   const [predicted, setPredicted] = useState<Predicted[]>([]);
   const [heatmap, setHeatmap] = useState<HeatmapSlotData[]>([]);
+  const [visits, setVisits] = useState<VisitsData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -211,6 +227,7 @@ export function App() {
       if (h) setHeatmap(h);
     };
     load();
+    api<VisitsData>("/api/visits").then((v) => { if (v) setVisits(v); });
     const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
   }, []);
@@ -304,6 +321,34 @@ export function App() {
             )}
           </div>
         </section>
+
+        {visits && visits.visits.length > 0 && (
+          <section className="mt-2">
+            <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-2">
+              Your visits
+              {visits.summary && (
+                <span className="ml-4 normal-case font-normal">
+                  {visits.summary.Total.Visits} total · {Math.round(visits.summary.Total.Duration / 60)}h lifetime · {visits.summary.ThisWeek.Visits} this week
+                </span>
+              )}
+            </h2>
+            <div className="flex flex-col gap-px">
+              {visits.visits.slice(0, 20).map((v, i) => {
+                const d = new Date(v.start);
+                const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+                const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div key={i} className="flex gap-4 text-[var(--muted-foreground)]">
+                    <span className="tabular-nums w-24">{day}</span>
+                    <span className="tabular-nums w-12">{time}</span>
+                    <span className="tabular-nums w-12">{v.duration}m</span>
+                    {v.gym !== "Cambridge Leisure Park" && <span>{v.gym}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

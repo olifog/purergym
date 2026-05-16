@@ -257,6 +257,60 @@ def heatmap(tz_offset: int = Query(default=0, ge=-12, le=14)):
     return result
 
 
+@app.get("/api/visits")
+def visits():
+    """Personal visit history from PureGym."""
+    if not PUREGYM_EMAIL or not PUREGYM_PIN:
+        return {"visits": [], "summary": None}
+    try:
+        token = get_token()
+        r = httpx.get(
+            "https://capi.puregym.com/api/v2/gymSessions/member",
+            params={
+                "fromDate": "2020-01-01T00:00:00",
+                "toDate": datetime.now(timezone.utc).isoformat(),
+            },
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        data = r.json()
+        visits = []
+        for v in data.get("Visits", []):
+            visits.append({
+                "start": v.get("StartTime"),
+                "duration": v.get("Duration"),
+                "gym": v.get("Gym", {}).get("Name", ""),
+                "estimated": v.get("IsDurationEstimated", False),
+            })
+        return {
+            "visits": visits,
+            "summary": data.get("Summary"),
+        }
+    except Exception as e:
+        print(f"Visits error: {e}")
+        return {"visits": [], "summary": None}
+
+
+@app.get("/api/membership")
+def membership():
+    """Membership details."""
+    if not PUREGYM_EMAIL or not PUREGYM_PIN:
+        return {}
+    try:
+        token = get_token()
+        r = httpx.get(
+            "https://capi.puregym.com/api/v2/member/membership",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print(f"Membership error: {e}")
+        return {}
+
+
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
