@@ -292,7 +292,7 @@ export function App() {
             Weekly avg
           </h2>
           <div className="relative" style={{ marginLeft: Y_AXIS_WIDTH }}>
-            <div className="absolute top-0 bottom-0 flex flex-col justify-around" style={{ right: "calc(100% + 6px)" }}>
+            <div className="absolute top-0 bottom-0 flex flex-col justify-around" style={{ right: "calc(100% + 10px)" }}>
               {DAYS.map((day) => (
                 <span key={day} className="text-[9px] text-[var(--muted-foreground)] whitespace-nowrap leading-[12px]">{day}</span>
               ))}
