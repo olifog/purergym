@@ -240,8 +240,7 @@ export function App() {
   // With a CSS calc: width = calc(125% + Y_AXIS_WIDTH px), margin-left = -Y_AXIS_WIDTH.
 
   return (
-    <div className="p-10">
-      <div className="max-w-[1000px] flex flex-col gap-4">
+    <div className="m-8 flex flex-col gap-4" style={{ width: "calc(100vw - 4rem)", maxWidth: 1000 }}>
         <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
           <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
           {error && <span className="text-[var(--muted-foreground)]">offline</span>}
@@ -326,7 +325,6 @@ export function App() {
             </div>
           </div>
         </section>
-      </div>
     </div>
   );
 }
