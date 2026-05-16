@@ -109,7 +109,7 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
       ))}
       <div className="flex mt-0.5">
         {Array.from({ length: 24 }, (_, i) => (
-          <div key={i} className="flex-1 text-center text-[var(--muted-foreground)] text-[9px]">
+          <div key={i} className="flex-1 text-left text-[var(--muted-foreground)] text-[9px]">
             {i % 2 === 0 ? i.toString().padStart(2, "0") : ""}
           </div>
         ))}
@@ -161,6 +161,7 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
             domain={[0, 30]}
             ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]}
             tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
+            padding={{ left: 0, right: 0 }}
           />
           <YAxis
             tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
