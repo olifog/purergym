@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - PUREGYM_EMAIL=${PUREGYM_EMAIL}
+      - PUREGYM_PIN=${PUREGYM_PIN}
+      - GYM_ID=${GYM_ID:-}
+      - POLL_INTERVAL=${POLL_INTERVAL:-600}
+      - DB_PATH=/data/gym.db
+    volumes:
+      - gym-data:/data
+    restart: unless-stopped
+
+volumes:
+  gym-data:
