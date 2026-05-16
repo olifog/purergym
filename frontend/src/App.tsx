@@ -31,10 +31,10 @@ interface Predicted {
   min: number;
 }
 
-interface HourlyAvg {
-  hour: number;
-  avg: number;
+interface HeatmapSlotData {
   day_of_week: number;
+  slot: number;
+  avg: number;
 }
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -58,12 +58,13 @@ async function api<T>(path: string): Promise<T | null> {
   }
 }
 
-function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; currentDow: number; currentHour: number }) {
-  const [hover, setHover] = useState<{ day: string; hour: number; val: number; x: number; y: number } | null>(null);
-  const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; currentDow: number; currentSlot: number }) {
+  const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number; belowY: number } | null>(null);
+  const SLOTS = 48;
+  const grid: number[][] = Array.from({ length: 7 }, () => Array(SLOTS).fill(0));
   let max = 1;
   for (const d of data) {
-    grid[d.day_of_week][d.hour] = d.avg;
+    grid[d.day_of_week][d.slot] = d.avg;
     if (d.avg > max) max = d.avg;
   }
 
@@ -71,20 +72,23 @@ function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; current
     <div className="overflow-x-auto relative">
       {hover && (
         <div
-          className="absolute pointer-events-none z-10 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
-          style={{ left: hover.x, top: hover.y - 32 }}
+          className="absolute pointer-events-none z-10 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
+          style={{
+            left: Math.min(hover.x, 600),
+            top: hover.y < 32 ? hover.belowY + 4 : hover.y - 28,
+          }}
         >
-          {hover.day} {hover.hour.toString().padStart(2, "0")}:00 — avg {Math.round(hover.val)}
+          {hover.day} {Math.floor(hover.slot / 2).toString().padStart(2, "0")}:{hover.slot % 2 === 0 ? "00" : "30"} avg {Math.round(hover.val)}
         </div>
       )}
-      <div className="grid grid-cols-[2rem_repeat(24,1fr)] gap-px">
+      <div className="grid grid-cols-[2rem_repeat(48,1fr)]">
         <div />
-        {Array.from({ length: 24 }, (_, i) => (
+        {Array.from({ length: SLOTS }, (_, i) => (
           <div
             key={i}
-            className="text-center text-[var(--muted-foreground)] text-[10px] leading-tight"
+            className="text-center text-[var(--muted-foreground)] text-[9px] leading-tight"
           >
-            {i % 2 === 0 ? i.toString().padStart(2, "0") : ""}
+            {i % 6 === 0 ? Math.floor(i / 2).toString().padStart(2, "0") : ""}
           </div>
         ))}
         {DAYS.map((day, di) => (
@@ -92,14 +96,14 @@ function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; current
             <div key={`${day}-label`} className="text-[var(--muted-foreground)] flex items-center text-[10px]">
               {day}
             </div>
-            {Array.from({ length: 24 }, (_, h) => {
-              const val = grid[di][h];
+            {Array.from({ length: SLOTS }, (_, s) => {
+              const val = grid[di][s];
               const intensity = val / max;
-              const isCurrent = di === currentDow && h === currentHour;
+              const isCurrent = di === currentDow && s === currentSlot;
               return (
                 <div
-                  key={`${day}-${h}`}
-                  className="aspect-square cursor-crosshair"
+                  key={`${day}-${s}`}
+                  className="aspect-[1/2] cursor-crosshair"
                   style={{
                     opacity: Math.max(intensity, 0.05),
                     backgroundColor: isCurrent ? "var(--primary)" : "var(--foreground)",
@@ -108,7 +112,14 @@ function Heatmap({ data, currentDow, currentHour }: { data: HourlyAvg[]; current
                   onMouseEnter={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
                     const parent = e.currentTarget.closest(".relative")!.getBoundingClientRect();
-                    setHover({ day, hour: h, val, x: rect.left - parent.left, y: rect.top - parent.top });
+                    setHover({
+                      day,
+                      slot: s,
+                      val,
+                      x: rect.left - parent.left,
+                      y: rect.top - parent.top,
+                      belowY: rect.bottom - parent.top,
+                    });
                   }}
                   onMouseLeave={() => setHover(null)}
                 />
@@ -208,7 +219,7 @@ export function App() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [today, setToday] = useState<Reading[]>([]);
   const [predicted, setPredicted] = useState<Predicted[]>([]);
-  const [heatmap, setHeatmap] = useState<HourlyAvg[]>([]);
+  const [heatmap, setHeatmap] = useState<HeatmapSlotData[]>([]);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -217,7 +228,7 @@ export function App() {
         api<Stats>("/api/stats"),
         api<Reading[]>("/api/today"),
         api<Predicted[]>("/api/predicted"),
-        api<HourlyAvg[]>("/api/heatmap"),
+        api<HeatmapSlotData[]>("/api/heatmap"),
       ]);
       if (s === null && t === null && h === null) {
         setError(true);
@@ -312,7 +323,7 @@ export function App() {
           Weekly avg
         </h2>
         {heatmap.length > 0 ? (
-          <Heatmap data={heatmap} currentDow={currentDow} currentHour={currentHour} />
+          <Heatmap data={heatmap} currentDow={currentDow} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
         ) : (
           <div className="text-[var(--muted-foreground)]">collecting data...</div>
         )}

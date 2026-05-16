@@ -229,19 +229,20 @@ def heatmap(tz_offset: int = Query(default=0, ge=-12, le=14)):
             f"""
             SELECT
                 cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) as dow,
-                cast(strftime('%H', datetime(timestamp, '{offset_str}')) as integer) as hour,
+                cast(strftime('%H', datetime(timestamp, '{offset_str}')) as integer) * 2
+                    + case when cast(strftime('%M', datetime(timestamp, '{offset_str}')) as integer) >= 30 then 1 else 0 end as slot,
                 avg(count) as avg_count
             FROM readings
             WHERE timestamp >= ?
-            GROUP BY dow, hour
-            ORDER BY dow, hour
+            GROUP BY dow, slot
+            ORDER BY dow, slot
             """,
             (cutoff,),
         ).fetchall()
     result = []
     for r in rows:
         dow = (r["dow"] - 1) % 7
-        result.append({"day_of_week": dow, "hour": r["hour"], "avg": round(r["avg_count"], 1)})
+        result.append({"day_of_week": dow, "slot": r["slot"], "avg": round(r["avg_count"], 1)})
     return result
 
 
