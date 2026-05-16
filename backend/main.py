@@ -46,6 +46,10 @@ def init_db():
         db.execute("""
             CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings(timestamp)
         """)
+        try:
+            db.execute("ALTER TABLE readings ADD COLUMN in_classes INTEGER DEFAULT 0")
+        except Exception:
+            pass
 
 
 @contextmanager
@@ -109,15 +113,16 @@ def poll_loop():
 
             data = fetch_attendance(token, gym_id)
             count = data.get("TotalPeopleInGym", 0)
+            in_classes = data.get("TotalPeopleInClasses", 0) or 0
             capacity = data.get("MaximumCapacity", 0) or 300
             ts = datetime.now(timezone.utc).isoformat()
 
             with get_db() as db:
                 db.execute(
-                    "INSERT INTO readings (timestamp, count, capacity) VALUES (?, ?, ?)",
-                    (ts, count, capacity),
+                    "INSERT INTO readings (timestamp, count, capacity, in_classes) VALUES (?, ?, ?, ?)",
+                    (ts, count, capacity, in_classes),
                 )
-            print(f"[{ts}] count={count} cap={capacity}")
+            print(f"[{ts}] count={count} classes={in_classes} cap={capacity}")
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 401:
@@ -143,11 +148,11 @@ def stats(tz_offset: int = Query(default=0, ge=-12, le=14)):
     offset_str = f"{tz_offset:+d} hours" if tz_offset != 0 else "0 hours"
     with get_db() as db:
         current = db.execute(
-            "SELECT timestamp, count, capacity FROM readings ORDER BY id DESC LIMIT 1"
+            "SELECT timestamp, count, capacity, in_classes FROM readings ORDER BY id DESC LIMIT 1"
         ).fetchone()
         if not current:
             return {
-                "current": 0, "peak": 0, "avg_now": 0,
+                "current": 0, "in_classes": 0, "peak": 0, "avg_now": 0,
                 "diff_from_avg": 0, "last_updated": "",
             }
 
@@ -170,6 +175,7 @@ def stats(tz_offset: int = Query(default=0, ge=-12, le=14)):
 
     return {
         "current": current["count"],
+        "in_classes": current["in_classes"] or 0,
         "peak": peak,
         "avg_now": avg_now,
         "diff_from_avg": round(current["count"] - avg_now, 1),
@@ -255,6 +261,25 @@ def heatmap(tz_offset: int = Query(default=0, ge=-12, le=14)):
         dow = (r["dow"] - 1) % 7
         result.append({"day_of_week": dow, "slot": r["slot"], "avg": round(r["avg_count"], 1)})
     return result
+
+
+@app.get("/api/qrcode")
+def qrcode():
+    """Entry QR code."""
+    if not PUREGYM_EMAIL or not PUREGYM_PIN:
+        return {}
+    try:
+        token = get_token()
+        r = httpx.get(
+            "https://capi.puregym.com/api/v2/member/qrcode",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=HTTP_TIMEOUT,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print(f"QR error: {e}")
+        return {}
 
 
 @app.get("/api/visits")

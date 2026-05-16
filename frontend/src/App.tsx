@@ -18,10 +18,16 @@ interface Reading {
 
 interface Stats {
   current: number;
+  in_classes: number;
   peak: number;
   avg_now: number;
   diff_from_avg: number;
   last_updated: string;
+}
+
+interface QrData {
+  QrCode: string;
+  ExpiresAt: string;
 }
 
 interface Predicted {
@@ -206,6 +212,7 @@ export function App() {
   const [predicted, setPredicted] = useState<Predicted[]>([]);
   const [heatmap, setHeatmap] = useState<HeatmapSlotData[]>([]);
   const [visits, setVisits] = useState<VisitsData | null>(null);
+  const [qr, setQr] = useState<QrData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -228,6 +235,7 @@ export function App() {
     };
     load();
     api<VisitsData>("/api/visits").then((v) => { if (v) setVisits(v); });
+    api<QrData>("/api/qrcode").then((q) => { if (q && q.QrCode) setQr(q); });
     const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
   }, []);
@@ -260,6 +268,9 @@ export function App() {
               <div>
                 <span className="text-2xl font-bold tabular-nums">{stats.current}</span>
                 <span className="text-[var(--muted-foreground)]"> / {stats.peak} peak</span>
+                {stats.in_classes > 0 && (
+                  <span className="text-[var(--muted-foreground)] ml-2">({stats.in_classes} in classes)</span>
+                )}
               </div>
               <div className="flex-1 h-2 bg-[var(--muted)]">
                 <div
@@ -322,30 +333,81 @@ export function App() {
           </div>
         </section>
 
-        {visits && visits.visits.length > 0 && (
-          <section className="mt-2">
+        {visits && visits.visits.length > 0 && (() => {
+          const avgDuration = Math.round(visits.visits.reduce((a, v) => a + v.duration, 0) / visits.visits.length);
+          const visitDates = visits.visits.map((v) => new Date(v.start).toDateString());
+          const uniqueDays = [...new Set(visitDates)];
+          const daysSinceLast = Math.floor((Date.now() - new Date(visits.visits[0].start).getTime()) / 86400000);
+
+          let currentStreak = 0;
+          const today = new Date();
+          for (let i = 0; i < 365; i++) {
+            const checkDate = new Date(today);
+            checkDate.setDate(checkDate.getDate() - i);
+            if (uniqueDays.includes(checkDate.toDateString())) {
+              currentStreak++;
+            } else if (i > 0) {
+              break;
+            }
+          }
+
+          const hourCounts: Record<number, number> = {};
+          for (const v of visits.visits) {
+            const h = new Date(v.start).getHours();
+            hourCounts[h] = (hourCounts[h] || 0) + 1;
+          }
+          const preferredHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+          return (
+            <section className="mt-2">
+              <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-2">
+                Your visits
+              </h2>
+              <div className="flex gap-6 mb-3 text-[var(--muted-foreground)]">
+                {visits.summary && (
+                  <>
+                    <span><span className="text-[var(--foreground)] font-medium">{visits.summary.Total.Visits}</span> total</span>
+                    <span><span className="text-[var(--foreground)] font-medium">{Math.round(visits.summary.Total.Duration / 60)}h</span> lifetime</span>
+                    <span><span className="text-[var(--foreground)] font-medium">{visits.summary.ThisWeek.Visits}</span> this week</span>
+                  </>
+                )}
+                <span><span className="text-[var(--foreground)] font-medium">{avgDuration}m</span> avg session</span>
+                <span>streak: <span className="text-[var(--foreground)] font-medium">{currentStreak}d</span></span>
+                {daysSinceLast > 0 && <span><span className="text-[var(--foreground)] font-medium">{daysSinceLast}d</span> ago</span>}
+                {preferredHour && <span>usually <span className="text-[var(--foreground)] font-medium">{preferredHour.padStart(2, "0")}:00</span></span>}
+              </div>
+              <div className="flex flex-col gap-px">
+                {visits.visits.slice(0, 15).map((v, i) => {
+                  const d = new Date(v.start);
+                  const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+                  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                  return (
+                    <div key={i} className="flex gap-4 text-[var(--muted-foreground)]">
+                      <span className="tabular-nums w-24">{day}</span>
+                      <span className="tabular-nums w-12">{time}</span>
+                      <span className="tabular-nums w-12">{v.duration}m</span>
+                      {v.gym !== "Cambridge Leisure Park" && <span>{v.gym}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })()}
+
+        {qr && (
+          <section className="mt-4">
             <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-2">
-              Your visits
-              {visits.summary && (
-                <span className="ml-4 normal-case font-normal">
-                  {visits.summary.Total.Visits} total · {Math.round(visits.summary.Total.Duration / 60)}h lifetime · {visits.summary.ThisWeek.Visits} this week
-                </span>
-              )}
+              Entry QR
             </h2>
-            <div className="flex flex-col gap-px">
-              {visits.visits.slice(0, 20).map((v, i) => {
-                const d = new Date(v.start);
-                const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-                const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-                return (
-                  <div key={i} className="flex gap-4 text-[var(--muted-foreground)]">
-                    <span className="tabular-nums w-24">{day}</span>
-                    <span className="tabular-nums w-12">{time}</span>
-                    <span className="tabular-nums w-12">{v.duration}m</span>
-                    {v.gym !== "Cambridge Leisure Park" && <span>{v.gym}</span>}
-                  </div>
-                );
-              })}
+            <div className="inline-block bg-white p-3">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr.QrCode)}`}
+                alt="Gym entry QR code"
+                width={200}
+                height={200}
+                className="block"
+              />
             </div>
           </section>
         )}
