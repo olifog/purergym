@@ -39,6 +39,7 @@ interface HeatmapSlotData {
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const TZ_OFFSET = Math.round(-new Date().getTimezoneOffset() / 60);
+const Y_AXIS_WIDTH = 30;
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleTimeString("en-GB", {
@@ -58,8 +59,6 @@ async function api<T>(path: string): Promise<T | null> {
   }
 }
 
-const CHART_LEFT_MARGIN = 34;
-
 function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: number }) {
   const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number } | null>(null);
   const SLOTS = 48;
@@ -73,7 +72,7 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
   const currentPct = (currentSlot / SLOTS) * 100;
 
   return (
-    <div className="relative" style={{ marginLeft: CHART_LEFT_MARGIN }}>
+    <div className="relative">
       {hover && (
         <div
           className="fixed pointer-events-none z-50 border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs whitespace-nowrap"
@@ -87,8 +86,7 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
         style={{ left: `${currentPct}%` }}
       />
       {DAYS.map((day, di) => (
-        <div key={day} className="flex h-[12px] relative group">
-          <span className="absolute right-full pr-1 text-[9px] text-[var(--muted-foreground)] leading-[12px]">{day}</span>
+        <div key={day} className="flex h-[12px]">
           {Array.from({ length: SLOTS }, (_, s) => {
             const val = grid[di][s];
             const intensity = val / max;
@@ -165,7 +163,7 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
         <YAxis
           tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
           stroke="var(--border)"
-          width={CHART_LEFT_MARGIN}
+          width={Y_AXIS_WIDTH}
         />
         <Tooltip
           contentStyle={{
@@ -231,80 +229,107 @@ export function App() {
     .filter((p) => p.hour > currentHour && p.hour < 24)
     .sort((a, b) => a.avg - b.avg)[0];
 
-  return (
-    <div className="mx-auto my-auto p-6 w-[90vw] max-w-[1200px] flex flex-col gap-4 min-h-screen justify-center">
-      <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
-        <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
-        {error && <span className="text-[var(--muted-foreground)]">offline</span>}
-        {!error && stats && (
-          <span className="text-[var(--muted-foreground)]">
-            updated {formatTime(stats.last_updated)}
-          </span>
-        )}
-      </header>
+  // Chart is 30/24 = 125% of the heatmap width.
+  // Chart's Y-axis (30px) sits to the left of the plot area.
+  // So chart total width = Y_AXIS_WIDTH + plotArea.
+  // We want plotArea's 0-24 region = heatmap width.
+  // plotArea covers 0-30, so 24h portion = 80% of plotArea.
+  // We need: 0.8 * plotArea = heatmapWidth => plotArea = 1.25 * heatmapWidth.
+  // chartTotalWidth = Y_AXIS_WIDTH + 1.25 * heatmapWidth.
+  // As a percentage of heatmapWidth: (Y_AXIS_WIDTH / heatmapWidth + 1.25) * 100%.
+  // With a CSS calc: width = calc(125% + Y_AXIS_WIDTH px), margin-left = -Y_AXIS_WIDTH.
 
-      {stats && (
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-6 items-baseline">
-            <div>
-              <span className="text-2xl font-bold tabular-nums">{stats.current}</span>
-              <span className="text-[var(--muted-foreground)]"> / {stats.peak} peak</span>
-            </div>
-            <div className="flex-1 h-2 bg-[var(--muted)]">
-              <div
-                className="h-full bg-[var(--foreground)] transition-all"
-                style={{ width: `${pctOfPeak}%` }}
-              />
-            </div>
-            <span className="tabular-nums font-medium">{pctOfPeak}%</span>
-          </div>
-          <div className="flex gap-4 text-[var(--muted-foreground)]">
-            <span>
-              avg for {currentHour.toString().padStart(2, "0")}:00 {DAYS[currentDow]}:{" "}
-              <span className="text-[var(--foreground)] font-medium">{stats.avg_now}</span>
+  return (
+    <div className="min-h-screen flex flex-col justify-center items-center p-6">
+      <div className="w-[85vw] max-w-[1000px] flex flex-col gap-4">
+        <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
+          <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
+          {error && <span className="text-[var(--muted-foreground)]">offline</span>}
+          {!error && stats && (
+            <span className="text-[var(--muted-foreground)]">
+              updated {formatTime(stats.last_updated)}
             </span>
-            <span>
-              {stats.diff_from_avg > 0 ? "+" : ""}
-              {stats.diff_from_avg} vs avg
-            </span>
-            {quietestUpcoming && (
+          )}
+        </header>
+
+        {stats && (
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-6 items-baseline">
+              <div>
+                <span className="text-2xl font-bold tabular-nums">{stats.current}</span>
+                <span className="text-[var(--muted-foreground)]"> / {stats.peak} peak</span>
+              </div>
+              <div className="flex-1 h-2 bg-[var(--muted)]">
+                <div
+                  className="h-full bg-[var(--foreground)] transition-all"
+                  style={{ width: `${pctOfPeak}%` }}
+                />
+              </div>
+              <span className="tabular-nums font-medium">{pctOfPeak}%</span>
+            </div>
+            <div className="flex gap-4 text-[var(--muted-foreground)]">
               <span>
-                quietest upcoming:{" "}
-                <span className="text-[var(--foreground)] font-medium">
-                  {(quietestUpcoming.hour % 24).toString().padStart(2, "0")}:00
-                </span>{" "}
-                (~{Math.round(quietestUpcoming.avg)})
+                avg for {currentHour.toString().padStart(2, "0")}:00 {DAYS[currentDow]}:{" "}
+                <span className="text-[var(--foreground)] font-medium">{stats.avg_now}</span>
               </span>
+              <span>
+                {stats.diff_from_avg > 0 ? "+" : ""}
+                {stats.diff_from_avg} vs avg
+              </span>
+              {quietestUpcoming && (
+                <span>
+                  quietest upcoming:{" "}
+                  <span className="text-[var(--foreground)] font-medium">
+                    {(quietestUpcoming.hour % 24).toString().padStart(2, "0")}:00
+                  </span>{" "}
+                  (~{Math.round(quietestUpcoming.avg)})
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <section className="overflow-visible">
+          <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
+            Today vs predicted
+          </h2>
+          <div
+            className="h-48"
+            style={{
+              width: `calc(125% + ${Y_AXIS_WIDTH}px)`,
+              marginLeft: `-${Y_AXIS_WIDTH}px`,
+            }}
+          >
+            {predicted.length > 0 ? (
+              <TodayChart today={today} predicted={predicted} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-[var(--muted-foreground)]">
+                collecting data...
+              </div>
             )}
           </div>
-        </div>
-      )}
+        </section>
 
-      <section>
-        <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
-          Today vs predicted
-        </h2>
-        <div className="h-48 w-full">
-          {predicted.length > 0 ? (
-            <TodayChart today={today} predicted={predicted} />
-          ) : (
-            <div className="h-full flex items-center justify-center text-[var(--muted-foreground)]">
-              collecting data...
+        <section>
+          <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
+            Weekly avg
+          </h2>
+          <div className="flex">
+            <div className="shrink-0 flex flex-col justify-around" style={{ width: Y_AXIS_WIDTH }}>
+              {DAYS.map((day) => (
+                <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right pr-1 leading-[12px]">{day}</span>
+              ))}
             </div>
-          )}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
-          Weekly avg
-        </h2>
-        {heatmap.length > 0 ? (
-          <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
-        ) : (
-          <div className="text-[var(--muted-foreground)]">collecting data...</div>
-        )}
-      </section>
+            <div className="flex-1">
+              {heatmap.length > 0 ? (
+                <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
+              ) : (
+                <div className="text-[var(--muted-foreground)]">collecting data...</div>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
