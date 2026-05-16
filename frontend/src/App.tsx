@@ -61,7 +61,7 @@ async function api<T>(path: string): Promise<T | null> {
   }
 }
 
-function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: number }) {
+function Heatmap({ data, currentTimePct }: { data: HeatmapSlotData[]; currentTimePct: number }) {
   const [hover, setHover] = useState<{ day: string; slot: number; val: number; x: number; y: number } | null>(null);
   const SLOTS = 48;
   const grid: number[][] = Array.from({ length: 7 }, () => Array(SLOTS).fill(0));
@@ -70,8 +70,6 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
     grid[d.day_of_week][d.slot] = d.avg;
     if (d.avg > max) max = d.avg;
   }
-
-  const currentPct = (currentSlot / SLOTS) * 100;
 
   return (
     <div className="relative" style={{ width: HEATMAP_WIDTH }}>
@@ -85,7 +83,7 @@ function Heatmap({ data, currentSlot }: { data: HeatmapSlotData[]; currentSlot: 
       )}
       <div
         className="absolute top-0 bottom-0 w-px bg-red-500 z-10 pointer-events-none"
-        style={{ left: `${currentPct}%` }}
+        style={{ left: `${currentTimePct}%` }}
       />
       {DAYS.map((day, di) => (
         <div key={day} className="flex h-[12px]">
@@ -184,8 +182,8 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
           />
           <ReferenceLine x={24} stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="4 2" />
           <ReferenceLine x={currentTime} stroke="#ef4444" strokeWidth={1.5} />
-          <Area type="monotone" dataKey="predictedMax" stroke="none" fill="var(--foreground)" fillOpacity={0.05} connectNulls />
-          <Area type="monotone" dataKey="predictedMin" stroke="none" fill="var(--background)" fillOpacity={1} connectNulls />
+          <Area type="monotone" dataKey="predictedMax" stroke="none" fill="var(--foreground)" fillOpacity={0.08} connectNulls />
+          <Area type="monotone" dataKey="predictedMin" stroke="none" fill="var(--foreground)" fillOpacity={0} connectNulls />
           <Line type="monotone" dataKey="predicted" stroke="var(--muted-foreground)" strokeDasharray="4 2" strokeWidth={1} dot={false} connectNulls />
           <Line type="linear" dataKey="actual" stroke="var(--foreground)" strokeWidth={2} dot={{ r: 2, fill: "var(--foreground)" }} connectNulls />
         </ComposedChart>
@@ -301,13 +299,13 @@ export function App() {
             Weekly avg
           </h2>
           <div className="flex">
-            <div className="shrink-0 flex flex-col justify-around" style={{ width: Y_AXIS_WIDTH }}>
+            <div className="shrink-0 flex flex-col justify-around pr-2" style={{ width: Y_AXIS_WIDTH + 4 }}>
               {DAYS.map((day) => (
-                <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right pr-1 leading-[12px]">{day}</span>
+                <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right leading-[12px]">{day}</span>
               ))}
             </div>
             {heatmap.length > 0 ? (
-              <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
+              <Heatmap data={heatmap} currentTimePct={(currentHour + now.getMinutes() / 60) / 24 * 100} />
             ) : (
               <div className="text-[var(--muted-foreground)]">collecting data...</div>
             )}
