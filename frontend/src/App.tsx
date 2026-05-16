@@ -240,8 +240,8 @@ export function App() {
   // With a CSS calc: width = calc(125% + Y_AXIS_WIDTH px), margin-left = -Y_AXIS_WIDTH.
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-6">
-      <div className="w-[85vw] max-w-[1000px] flex flex-col gap-4">
+    <div className="p-8 pl-16">
+      <div className="max-w-[1000px] flex flex-col gap-4">
         <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
           <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
           {error && <span className="text-[var(--muted-foreground)]">offline</span>}
@@ -314,19 +314,20 @@ export function App() {
           <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
             Weekly avg
           </h2>
-          <div className="flex">
-            <div className="shrink-0 flex flex-col justify-around" style={{ width: Y_AXIS_WIDTH }}>
+          <div className="relative">
+            <div
+              className="absolute top-0 bottom-0 flex flex-col justify-around"
+              style={{ right: "100%", width: Y_AXIS_WIDTH }}
+            >
               {DAYS.map((day) => (
                 <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right pr-1 leading-[12px]">{day}</span>
               ))}
             </div>
-            <div className="flex-1">
-              {heatmap.length > 0 ? (
-                <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
-              ) : (
-                <div className="text-[var(--muted-foreground)]">collecting data...</div>
-              )}
-            </div>
+            {heatmap.length > 0 ? (
+              <Heatmap data={heatmap} currentSlot={currentHour * 2 + (now.getMinutes() >= 30 ? 1 : 0)} />
+            ) : (
+              <div className="text-[var(--muted-foreground)]">collecting data...</div>
+            )}
           </div>
         </section>
       </div>
