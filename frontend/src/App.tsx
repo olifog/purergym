@@ -291,8 +291,8 @@ export function App() {
           <h2 className="text-xs font-medium text-[var(--muted-foreground)] uppercase tracking-wider mb-1">
             Weekly avg
           </h2>
-          <div className="flex" style={{ marginLeft: -8 }}>
-            <div className="shrink-0 flex flex-col justify-around pr-1" style={{ width: Y_AXIS_WIDTH - 8 }}>
+          <div className="flex" style={{ marginLeft: -4 }}>
+            <div className="shrink-0 flex flex-col justify-around pr-1" style={{ width: Y_AXIS_WIDTH - 4 }}>
               {DAYS.map((day) => (
                 <span key={day} className="text-[9px] text-[var(--muted-foreground)] text-right leading-[12px]">{day}</span>
               ))}
