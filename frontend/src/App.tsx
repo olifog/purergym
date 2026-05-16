@@ -102,9 +102,10 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
                   key={`${day}-${s}`}
                   className="aspect-[1/2] cursor-crosshair"
                   style={{
-                    opacity: Math.max(intensity, 0.05),
-                    backgroundColor: isCurrent ? "var(--primary)" : "var(--foreground)",
-                    outline: isCurrent ? "1px solid var(--foreground)" : "none",
+                    backgroundColor: isCurrent
+                      ? `rgba(255,255,255,${Math.max(intensity, 0.3)})`
+                      : `rgba(255,255,255,${intensity * 0.8})`,
+                    outline: isCurrent ? "1px solid white" : "none",
                   }}
                   onMouseEnter={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -122,12 +123,14 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
 }
 
 function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predicted[] }) {
-  const currentHour = new Date().getHours();
-  const merged = Array.from({ length: 24 }, (_, h) => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const TOTAL_HOURS = 30;
+
+  const merged = Array.from({ length: TOTAL_HOURS }, (_, h) => {
     const pred = predicted.find((p) => p.hour === h);
     return {
       hour: h,
-      label: h.toString().padStart(2, "0"),
       predicted: pred?.avg ?? null,
       predictedMax: pred?.max ?? null,
       predictedMin: pred?.min ?? null,
@@ -147,9 +150,13 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
       <ComposedChart data={merged}>
         <CartesianGrid strokeDasharray="2 2" stroke="var(--border)" />
         <XAxis
-          dataKey="label"
+          dataKey="hour"
           tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
           stroke="var(--border)"
+          type="number"
+          domain={[0, TOTAL_HOURS - 1]}
+          ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28]}
+          tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
         />
         <YAxis
           tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
@@ -164,8 +171,9 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
             fontSize: 11,
             fontFamily: "inherit",
           }}
+          labelFormatter={(h) => `${(Number(h) % 24).toString().padStart(2, "0")}:00`}
         />
-        <ReferenceLine x={currentHour.toString().padStart(2, "0")} stroke="var(--muted-foreground)" strokeDasharray="3 3" />
+        <ReferenceLine x={currentHour} stroke="#ef4444" strokeWidth={1.5} />
         <Area
           type="monotone"
           dataKey="predictedMax"

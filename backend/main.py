@@ -193,31 +193,42 @@ def today_readings(tz_offset: int = Query(default=0, ge=-12, le=14)):
 
 @app.get("/api/predicted")
 def predicted_today(tz_offset: int = Query(default=0, ge=-12, le=14)):
-    """Average count for each hour of today's day-of-week (the predicted curve)."""
+    """Average count for each hour of today + first 6h of tomorrow."""
     now = datetime.now(timezone.utc)
     local_now = now + timedelta(hours=tz_offset)
     current_dow = int(local_now.strftime("%w"))
+    next_dow = (current_dow + 1) % 7
     offset_str = f"{tz_offset:+d} hours" if tz_offset != 0 else "0 hours"
 
     with get_db() as db:
         rows = db.execute(
             f"""
             SELECT
+                cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) as dow,
                 cast(strftime('%H', datetime(timestamp, '{offset_str}')) as integer) as hour,
                 avg(count) as avg_count,
                 max(count) as max_count,
                 min(count) as min_count
             FROM readings
-            WHERE cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) = ?
-            GROUP BY hour
-            ORDER BY hour
+            WHERE cast(strftime('%w', datetime(timestamp, '{offset_str}')) as integer) IN (?, ?)
+            GROUP BY dow, hour
+            ORDER BY dow, hour
             """,
-            (current_dow,),
+            (current_dow, next_dow),
         ).fetchall()
-    return [
-        {"hour": r["hour"], "avg": round(r["avg_count"], 1), "max": r["max_count"], "min": r["min_count"]}
-        for r in rows
-    ]
+    result = []
+    for r in rows:
+        is_tomorrow = r["dow"] == next_dow
+        if is_tomorrow and r["hour"] >= 6:
+            continue
+        offset = 24 if is_tomorrow else 0
+        result.append({
+            "hour": r["hour"] + offset,
+            "avg": round(r["avg_count"], 1),
+            "max": r["max_count"],
+            "min": r["min_count"],
+        })
+    return result
 
 
 @app.get("/api/heatmap")
