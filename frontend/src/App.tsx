@@ -129,7 +129,7 @@ export function App() {
   const pct = stats && stats.capacity > 0 ? Math.round((stats.current / stats.capacity) * 100) : 0;
 
   return (
-    <div className="p-4 max-w-4xl mx-auto flex flex-col gap-4">
+    <div className="p-8 max-w-4xl mx-auto flex flex-col gap-4 min-h-screen justify-center">
       <header className="flex items-baseline justify-between border-b border-[var(--border)] pb-2">
         <h1 className="text-sm font-semibold tracking-tight">purergym</h1>
         {error && <span className="text-[var(--muted-foreground)]">offline</span>}
