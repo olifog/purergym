@@ -124,37 +124,45 @@ function Heatmap({ data, currentDow, currentSlot }: { data: HeatmapSlotData[]; c
 
 function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predicted[] }) {
   const now = new Date();
-  const currentHour = now.getHours();
+  const currentTime = now.getHours() + now.getMinutes() / 60;
   const TOTAL_HOURS = 30;
 
-  const merged = Array.from({ length: TOTAL_HOURS }, (_, h) => {
-    const pred = predicted.find((p) => p.hour === h);
-    return {
-      hour: h,
-      predicted: pred?.avg ?? null,
-      predictedMax: pred?.max ?? null,
-      predictedMin: pred?.min ?? null,
-      actual: null as number | null,
-    };
-  });
+  const points: { time: number; actual: number | null; predicted: number | null; predictedMax: number | null; predictedMin: number | null }[] = [];
+
+  for (const pred of predicted) {
+    points.push({
+      time: pred.hour,
+      actual: null,
+      predicted: pred.avg,
+      predictedMax: pred.max,
+      predictedMin: pred.min,
+    });
+  }
 
   for (const r of today) {
-    const h = new Date(r.timestamp).getHours();
-    if (merged[h]) {
-      merged[h].actual = r.count;
-    }
+    const d = new Date(r.timestamp);
+    const t = d.getHours() + d.getMinutes() / 60;
+    points.push({
+      time: t,
+      actual: r.count,
+      predicted: null,
+      predictedMax: null,
+      predictedMin: null,
+    });
   }
+
+  points.sort((a, b) => a.time - b.time);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={merged}>
+      <ComposedChart data={points}>
         <CartesianGrid strokeDasharray="2 2" stroke="var(--border)" />
         <XAxis
-          dataKey="hour"
+          dataKey="time"
           tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
           stroke="var(--border)"
           type="number"
-          domain={[0, TOTAL_HOURS - 1]}
+          domain={[0, TOTAL_HOURS]}
           ticks={[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28]}
           tickFormatter={(h) => (h % 24).toString().padStart(2, "0")}
         />
@@ -171,9 +179,13 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
             fontSize: 11,
             fontFamily: "inherit",
           }}
-          labelFormatter={(h) => `${(Number(h) % 24).toString().padStart(2, "0")}:00`}
+          labelFormatter={(t) => {
+            const h = Math.floor(Number(t) % 24);
+            const m = Math.round((Number(t) % 1) * 60);
+            return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+          }}
         />
-        <ReferenceLine x={currentHour} stroke="#ef4444" strokeWidth={1.5} />
+        <ReferenceLine x={currentTime} stroke="#ef4444" strokeWidth={1.5} />
         <Area
           type="monotone"
           dataKey="predictedMax"
@@ -200,11 +212,11 @@ function TodayChart({ today, predicted }: { today: Reading[]; predicted: Predict
           connectNulls
         />
         <Line
-          type="stepAfter"
+          type="linear"
           dataKey="actual"
           stroke="var(--foreground)"
           strokeWidth={2}
-          dot={false}
+          dot={{ r: 2, fill: "var(--foreground)" }}
           connectNulls
         />
       </ComposedChart>
