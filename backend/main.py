@@ -112,7 +112,7 @@ def poll_loop():
                     print(f"resolved gym_id={gym_id}")
 
             data = fetch_attendance(token, gym_id)
-            count = data.get("TotalPeopleInGym", 0)
+            count = data.get("TotalPeopleInGym", 0) or 0
             in_classes = data.get("TotalPeopleInClasses", 0) or 0
             capacity = data.get("MaximumCapacity", 0) or 300
             ts = datetime.now(timezone.utc).isoformat()
